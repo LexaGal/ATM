@@ -18,8 +18,16 @@ namespace ATM
     public class BankTerminal
     {
         private const string Path =
-            @"C:\Users\Alex\Desktop\ATM\ATM\Pack.txt";
+            @"C:\Users\Alex\Documents\GitHub\ATM\ATM\ATM\ATM\bin\Debug\Pack.txt";
 
+        private const string NoMoney =
+            "Sorry, you cannot get such summ (not enough money in ATM)";
+
+        private const string NoCombination =
+            "Sorry, you cannot get such summ (ATM cannot complete your summ)";
+
+        private const string Successed = "Successed";
+        
         public static Client CurrentClient { get; private set; }
         public static BanknotesPack CurrentPack { get; private set; }
 
@@ -65,10 +73,10 @@ namespace ATM
             return true;
         }
 
-        public static Tuple<int, string> WithdrawMoney(ref int summ)
+        public static Tuple<List<Tuple<Banknote, int>>, int, string> WithdrawMoney(ref int summ)
         {
             if (summ > FullSumm)
-                return new Tuple<int, string>(-1, "Sorry, you cannot get such summ (not enough money in ATM)");
+                return new Tuple<List<Tuple<Banknote, int>>, int, string>(null , -1, NoMoney);
 
             //probabilities of choice of each banknote
             var probabilities = new List<Tuple<Banknote, double>>();
@@ -100,26 +108,21 @@ namespace ATM
 
             probabilities.Sort((tuple1, tuple2) => tuple1.Item2.CompareTo(tuple2.Item2));
 
-            //tuple with max probability
             if (NBanknotesKinds == 0)
-                return new Tuple<int, string>(-1, "Sorry, you cannot get such summ (not enough money in ATM)");
-
+                return new Tuple<List<Tuple<Banknote, int>>, int, string>(null, -1, NoMoney);
+            
+            //tuple with max probability
             var max = new Tuple<Banknote, double>(probabilities[NBanknotesKinds - 1].Item1,
                                                   probabilities[NBanknotesKinds - 1].Item2);
 
-            BanknotesOut.Add(max.Item1.Weight);
-
             //index of max in banknotes out
-            var index = WithdrawnMoney.BanknotesOut.FindIndex(tuple => tuple.Item1.Weight == max.Item1.Weight);
-
-
-            //increase n of banknotes out of this weight
-            WithdrawnMoney.BanknotesOut[index] = new Tuple<Banknote, int>(WithdrawnMoney.BanknotesOut[index].Item1,
-                                                                          WithdrawnMoney.BanknotesOut[index].Item2 + 1);
-
-           //decrease n of banknotes of this weight in current pack
+            var index = CurrentPack.Banknotes.FindIndex(tuple => tuple.Item1.Weight == max.Item1.Weight);
+            
+            //decrease n of banknotes of this weight in current pack
             CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
                                                                     CurrentPack.Banknotes[index].Item2 - 1);
+
+            BanknotesOut.Add(max.Item1.Weight);
 
             if (CurrentPack.Banknotes[index].Item2 == 0)
             {
@@ -132,42 +135,67 @@ namespace ATM
             if (summ == 0)
             {
                 FullSumm -= RequestedSumm;
-                return new Tuple<int, string>(CurrentClient.CurrentSumm - RequestedSumm, "Successed");
+                WithdrawnMoney.BanknotesOut = CalculateBanknotes();
+                return new Tuple<List<Tuple<Banknote, int>>, int, string>(WithdrawnMoney.BanknotesOut,
+                    CurrentClient.CurrentSumm - RequestedSumm, Successed);
             }
 
             if (summ < CurrentPack.Banknotes.Min(tuple => tuple.Item1.Weight) && CurrentPack.Banknotes.Count != 0)
             {
-                do
+                counter = 0;
+                try
                 {
-                    WithdrawnMoney.BanknotesOut.Clear();
-                    
-                    summ += BanknotesOut.Last();
+                    do
+                    {
+                        summ += BanknotesOut.Last();
 
-                    var elem = CurrentPack.Banknotes.Where(el => el.Item1.Weight == BanknotesOut.Last());
+                        var weights = CurrentPack.Banknotes.Where(el => el.Item1.Weight == BanknotesOut.Last());
 
-                    index = CurrentPack.Banknotes.IndexOf(elem.ToList()[0]);
-                    
-                    CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
-                                                                            CurrentPack.Banknotes[index].Item2 + 1);
-                    
-                    BanknotesOut.Remove(BanknotesOut.Last());
-                    
-                } while (!BanknotesChanged(summ));
-                
-                FullSumm -= RequestedSumm;
+                        index = CurrentPack.Banknotes.IndexOf(weights.ToList().First());
 
-                return new Tuple<int, string>(CurrentClient.CurrentSumm - RequestedSumm, "Successed");
+                        CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
+                                                                                CurrentPack.Banknotes[index].Item2 + 1);
+
+                        BanknotesOut.Remove(BanknotesOut.Last());
+
+                    } while (!BanknotesChanged(summ, ref counter));
+
+                    for (int i = BanknotesOut.Count - counter; i < BanknotesOut.Count; i++)
+                    {
+                        var weights = CurrentPack.Banknotes.Where(el => el.Item1.Weight == BanknotesOut[i]);
+
+                        index = CurrentPack.Banknotes.IndexOf(weights.ToList().First());
+
+                        CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
+                                                                                CurrentPack.Banknotes[index].Item2 - 1);
+                    }
+                    
+                    FullSumm -= RequestedSumm;
+
+                    BanknotesOut.Sort();
+                    
+                    WithdrawnMoney.BanknotesOut = CalculateBanknotes();
+                }
+
+                catch (Exception)
+                {
+                    return new Tuple<List<Tuple<Banknote, int>>, int, string>(null,
+                        CurrentClient.CurrentSumm, NoCombination);
+                }
+
+                return new Tuple<List<Tuple<Banknote, int>>, int, string>(WithdrawnMoney.BanknotesOut,
+                    CurrentClient.CurrentSumm - RequestedSumm, Successed);
             }
 
             return WithdrawMoney(ref summ);
         }
 
-        public static bool BanknotesChanged(int residue)
+        public static bool BanknotesChanged(int residue, ref int counter)
         {
             var allBanknotes = new List<int>();
             allBanknotes.AddRange(CurrentPack.Banknotes.Where((tuple => tuple.Item1.Weight <= residue)).
                 Select(b => b.Item1.Weight));
-
+            
             var nBanknotes = allBanknotes.Count;
             var maxSumm = residue + 1;
             
@@ -230,11 +258,45 @@ namespace ATM
                 {
                     prev = residue - partialSumm;
                 }
+
+                counter++;
             }
 
-            BanknotesOut.Sort();
             return true;
         }
+
+        public static List<Tuple<Banknote, int>> CalculateBanknotes()
+        {
+            var banknotes = BanknotesOut.OrderByDescending(el => el).ToList();
+            var tuples = new List<Tuple<Banknote, int>>();
+
+            var elem = banknotes[0];
+            var n = 0;
+
+            for (int i = 0; i < banknotes.Count; i++)
+            {
+                if (banknotes[i] == elem)
+                {
+                    n++;
+                }
+
+                else
+                {
+                    tuples.Add(new Tuple<Banknote, int>(new Banknote(banknotes[i - 1]), n));
+                    elem = banknotes[i];
+                    n = 1;
+                }
+
+                if (i == banknotes.Count - 1)
+                {
+                    tuples.Add(new Tuple<Banknote, int>(new Banknote(banknotes[i]), n));
+                }
+            }
+
+
+            return tuples;
+        }
+
 
         public static void ShowBalance()
         {

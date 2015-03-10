@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -8,7 +7,7 @@ namespace ATM
 {
     public class Client
     {
-        private const string Path = @"C:\Users\Alex\Desktop\ATM\ATM\Clients.txt";
+        private const string Path = @"C:\Users\Alex\Documents\GitHub\ATM\ATM\ATM\ATM\bin\Debug\Clients.txt";
         
         public string PinCode { get; private set; }
         public int CurrentSumm { get; private set; }
@@ -21,13 +20,10 @@ namespace ATM
                 do
                 {
                     s = reader.ReadLine();
-                    if (!String.IsNullOrEmpty(s))
-                    {
-                        string[] pair = s.Split(' ');
-                        PinCode = pair[0];
-                        CurrentSumm = int.Parse(pair[1]);  
-                    }
-
+                    if (String.IsNullOrEmpty(s)) continue;
+                    var pair = s.Split(' ');
+                    PinCode = pair[0];
+                    CurrentSumm = int.Parse(pair[1]);
                 } while (s != null);
                
             }
@@ -45,49 +41,62 @@ namespace ATM
             CurrentSumm = client.CurrentSumm;
         }
 
-        public StringBuilder GetMoney(int summ)
+        public string GetMoney(int summ)
         {
             BankTerminal.RequestedSumm = summ;
-
-            var banknotes = new StringBuilder("\n");
 
             try
             {
                 var result = BankTerminal.WithdrawMoney(ref summ);
 
-                if (result.Item1 == -1)
+                if (result.Item1 == null)
                 {
-                    Console.WriteLine(result.Item2);
+                    Console.WriteLine(result.Item3);
                     return null;
                 }
 
-                CurrentSumm = result.Item1;
+                CurrentSumm = result.Item2;
+                
+            }
+            
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception.Message);
+                Console.ReadKey();
+                return null;
+            }
 
-                if (BankTerminal.WithdrawnMoney.BanknotesOut.Count == 0) return null;
+            return ReturnBanknotes();
+        }
 
+        public string ReturnBanknotes()
+        {
+            var banknotes = new StringBuilder("\n");
+
+            try
+            {
                 BankTerminal.WithdrawnMoney.BanknotesOut.OrderByDescending(tuple =>
                                                                            tuple.Item1.Weight).Where(
                                                                                elem1 => elem1.Item2 != 0).ToList().
-                    ForEach(elem2 =>
-                            banknotes.Append(elem2.Item1.Weight.ToString() + " * " + elem2.Item2.ToString() + " + "));
-
+                    ForEach(elem2 => banknotes.Append(elem2.Item1.Weight.ToString()
+                                                      + " * " + elem2.Item2.ToString() + " + "));
 
                 banknotes.Remove(banknotes.ToString().Count() - 3, 3);
             }
 
-            catch (Exception ex)
+            catch(Exception exception)
             {
-                Console.WriteLine(ex.Message);
+                Console.WriteLine(exception.Message);
             }
 
-            return banknotes;
+            return banknotes.ToString();
         }
 
         public void SaveState()
         {
             using (TextWriter writer = new StreamWriter(Path))
             {
-                writer.WriteLine(PinCode +  ' ' + CurrentSumm.ToString());
+                writer.WriteLine(PinCode +  ' ' + CurrentSumm);
             }
         }
     }

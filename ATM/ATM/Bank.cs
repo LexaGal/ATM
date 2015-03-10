@@ -7,7 +7,7 @@ namespace ATM
     public class Bank
     {
         private const string Path =
-            @"C:\Users\Alex\Desktop\ATM\ATM\Pack.txt";
+            @"C:\Users\Alex\Documents\GitHub\ATM\ATM\ATM\ATM\bin\Debug\Pack.txt";
 
         public int AllMoney { get; set; }
         public List<Client> Clients { get; private set; }
@@ -30,11 +30,9 @@ namespace ATM
                 do
                 {
                     s = reader.ReadLine();
-                    if (!String.IsNullOrEmpty(s))
-                    {
-                        string[] pair = s.Split(' ');
-                        Banknotes.Add(new Tuple<Banknote, int>(new Banknote(int.Parse(pair[0])), int.Parse(pair[1])));
-                    }
+                    if (String.IsNullOrEmpty(s)) continue;
+                    var pair = s.Split(' ');
+                    Banknotes.Add(new Tuple<Banknote, int>(new Banknote(int.Parse(pair[0])), int.Parse(pair[1])));
                 } while (s != null);
             }
 
