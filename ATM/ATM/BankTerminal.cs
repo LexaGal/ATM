@@ -5,29 +5,8 @@ using System.Linq;
 
 namespace ATM
 {
-    public class GotMoney
-    {
-        public List<Tuple<Banknote, int>> BanknotesOut;
-
-        public GotMoney()
-        {
-            BanknotesOut = new List<Tuple<Banknote, int>>();
-        }
-    }
-
     public class BankTerminal
     {
-        private const string Path =
-            @"C:\Users\Alex\Documents\GitHub\ATM\ATM\ATM\ATM\bin\Debug\Pack.txt";
-
-        private const string NoMoney =
-            "Sorry, you cannot get such summ (not enough money in ATM)";
-
-        private const string NoCombination =
-            "Sorry, you cannot get such summ (ATM cannot complete your summ)";
-
-        private const string Successed = "Successed";
-        
         public static Client CurrentClient { get; private set; }
         public static BanknotesPack CurrentPack { get; private set; }
 
@@ -35,23 +14,23 @@ namespace ATM
         public static int RequestedSumm { get; set; }
         public static int NBanknotesKinds { get; private set; }
 
-        public static GotMoney WithdrawnMoney { get; private set; }
-        public static List<int> BanknotesOut;
+        public static BanknotesPack WithdrawnMoney { get; private set; }
+        public static List<int> BanknotesOut { get; set; }
         
 
         public static void ServiceNewClient(Client client)
         {
             BanknotesOut = new List<int>();
 
-            WithdrawnMoney = new GotMoney();
+            WithdrawnMoney = new BanknotesPack();
 
             CurrentClient = new Client(client);
 
-            WithdrawnMoney.BanknotesOut = new List<Tuple<Banknote, int>>();
+            WithdrawnMoney.Banknotes = new List<Tuple<Banknote, int>>();
 
             foreach (var tuple in CurrentPack.Banknotes)
             {
-                WithdrawnMoney.BanknotesOut.Add(new Tuple<Banknote, int>(tuple.Item1, 0));
+                WithdrawnMoney.Banknotes.Add(new Tuple<Banknote, int>(tuple.Item1, 0));
             }
         }
 
@@ -76,7 +55,9 @@ namespace ATM
         public static Tuple<List<Tuple<Banknote, int>>, int, string> WithdrawMoney(ref int summ)
         {
             if (summ > FullSumm)
-                return new Tuple<List<Tuple<Banknote, int>>, int, string>(null , -1, NoMoney);
+            {
+                return new Tuple<List<Tuple<Banknote, int>>, int, string>(null, -1, Info.ErrorNoMoneyATM);
+            }
 
             //probabilities of choice of each banknote
             var probabilities = new List<Tuple<Banknote, double>>();
@@ -88,18 +69,18 @@ namespace ATM
                 var nBanknotesAvailable = tuple.Item2;
 
                 //max n banknotes of this weight required for this summ (for ex. 200: 950 -> 4*200 + 150 -> 4) 
-                var nBanknotesRequired = (double) summ/tuple.Item1.Weight;
+                var nBanknotesRequired = (double) summ / tuple.Item1.Weight;
 
                 //n banknotes of this weight already given out
-                var givenOut = WithdrawnMoney.BanknotesOut[counter].Item2;
+                var givenOut = WithdrawnMoney.Banknotes[counter].Item2;
 
                 //the fraction (for ex. 200: 45/4 = 11.231...) 
-                double probability;
+                var probability = nBanknotesAvailable / nBanknotesRequired / (givenOut + 1);
 
                 if (nBanknotesRequired < 1)
+                {
                     probability = -1;
-
-                else probability = nBanknotesAvailable/nBanknotesRequired/(givenOut + 1);
+                }
 
                 probabilities.Add(new Tuple<Banknote, double>(new Banknote(tuple.Item1.Weight), probability));
 
@@ -109,7 +90,9 @@ namespace ATM
             probabilities.Sort((tuple1, tuple2) => tuple1.Item2.CompareTo(tuple2.Item2));
 
             if (NBanknotesKinds == 0)
-                return new Tuple<List<Tuple<Banknote, int>>, int, string>(null, -1, NoMoney);
+            {
+                return new Tuple<List<Tuple<Banknote, int>>, int, string>(null, -1, Info.ErrorNoMoneyATM);
+            }
             
             //tuple with max probability
             var max = new Tuple<Banknote, double>(probabilities[NBanknotesKinds - 1].Item1,
@@ -135,9 +118,9 @@ namespace ATM
             if (summ == 0)
             {
                 FullSumm -= RequestedSumm;
-                WithdrawnMoney.BanknotesOut = CalculateBanknotes();
-                return new Tuple<List<Tuple<Banknote, int>>, int, string>(WithdrawnMoney.BanknotesOut,
-                    CurrentClient.CurrentSumm - RequestedSumm, Successed);
+                WithdrawnMoney.Banknotes = CalculateBanknotes();
+                return new Tuple<List<Tuple<Banknote, int>>, int, string>(WithdrawnMoney.Banknotes,
+                    CurrentClient.CurrentSumm - RequestedSumm, Info.Successed);
             }
 
             if (summ < CurrentPack.Banknotes.Min(tuple => tuple.Item1.Weight) && CurrentPack.Banknotes.Count != 0)
@@ -158,7 +141,7 @@ namespace ATM
 
                         BanknotesOut.Remove(BanknotesOut.Last());
 
-                    } while (!BanknotesChanged(summ, ref counter));
+                    } while (!GotRequiredCombination(summ, ref counter));
 
                     for (int i = BanknotesOut.Count - counter; i < BanknotesOut.Count; i++)
                     {
@@ -174,23 +157,23 @@ namespace ATM
 
                     BanknotesOut.Sort();
                     
-                    WithdrawnMoney.BanknotesOut = CalculateBanknotes();
+                    WithdrawnMoney.Banknotes = CalculateBanknotes();
                 }
 
-                catch (Exception)
+                catch (InvalidOperationException)
                 {
                     return new Tuple<List<Tuple<Banknote, int>>, int, string>(null,
-                        CurrentClient.CurrentSumm, NoCombination);
+                        CurrentClient.CurrentSumm, Info.ErrorNoCombination);
                 }
 
-                return new Tuple<List<Tuple<Banknote, int>>, int, string>(WithdrawnMoney.BanknotesOut,
-                    CurrentClient.CurrentSumm - RequestedSumm, Successed);
+                return new Tuple<List<Tuple<Banknote, int>>, int, string>(WithdrawnMoney.Banknotes,
+                    CurrentClient.CurrentSumm - RequestedSumm, Info.Successed);
             }
 
             return WithdrawMoney(ref summ);
         }
 
-        public static bool BanknotesChanged(int residue, ref int counter)
+        public static bool GotRequiredCombination(int residue, ref int counter)
         {
             var allBanknotes = new List<int>();
             allBanknotes.AddRange(CurrentPack.Banknotes.Where((tuple => tuple.Item1.Weight <= residue)).
@@ -225,7 +208,6 @@ namespace ATM
                         previousSummAdditional[j] = j - allBanknotes[i];
                         combinationExists[j] = 1;
                     }
-
                     else
                     {
                         previousSummAdditional[i] = previousSummMain[j];
@@ -239,7 +221,9 @@ namespace ATM
             }
 
             if (combinationExists[residue] == 0)
+            {
                 return false;
+            }
 
             var prev = residue;
             var partialSumm = 0;
@@ -279,7 +263,6 @@ namespace ATM
                 {
                     n++;
                 }
-
                 else
                 {
                     tuples.Add(new Tuple<Banknote, int>(new Banknote(banknotes[i - 1]), n));
@@ -293,10 +276,8 @@ namespace ATM
                 }
             }
 
-
             return tuples;
         }
-
 
         public static void ShowBalance()
         {
@@ -309,12 +290,20 @@ namespace ATM
 
         public static void Finish()
         {
-            using (TextWriter writer = new StreamWriter(Path))
+            try
             {
-                foreach (var tuple in CurrentPack.Banknotes)
+                using (TextWriter writer = new StreamWriter(Info.PackPath))
                 {
-                    writer.WriteLine(tuple.Item1.Weight.ToString() + ' ' + tuple.Item2.ToString());
+                    foreach (var tuple in CurrentPack.Banknotes)
+                    {
+                        writer.WriteLine("{0} {1}", tuple.Item1.Weight, tuple.Item2);
+                    }
                 }
+            }
+
+            catch (FileNotFoundException exception)
+            {
+                Console.WriteLine(exception.Message);
             }
         }
         
