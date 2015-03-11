@@ -15,12 +15,12 @@ namespace ATM
         public static int NBanknotesKinds { get; private set; }
 
         public static BanknotesPack WithdrawnMoney { get; private set; }
-        public static List<int> BanknotesOut { get; set; }
+        public static List<int> Banknotes { get; set; }
         
 
         public static void ServiceNewClient(Client client)
         {
-            BanknotesOut = new List<int>();
+            Banknotes = new List<int>();
 
             WithdrawnMoney = new BanknotesPack();
 
@@ -105,7 +105,7 @@ namespace ATM
             CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
                                                                     CurrentPack.Banknotes[index].Item2 - 1);
 
-            BanknotesOut.Add(max.Item1.Weight);
+            Banknotes.Add(max.Item1.Weight);
 
             if (CurrentPack.Banknotes[index].Item2 == 0)
             {
@@ -130,32 +130,39 @@ namespace ATM
                 {
                     do
                     {
-                        summ += BanknotesOut.Last();
+                        summ += Banknotes.Last();
 
-                        var weights = CurrentPack.Banknotes.Where(el => el.Item1.Weight == BanknotesOut.Last());
+                        var weights = CurrentPack.Banknotes.Where(el => el.Item1.Weight == Banknotes.Last());
 
                         index = CurrentPack.Banknotes.IndexOf(weights.ToList().First());
 
                         CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
                                                                                 CurrentPack.Banknotes[index].Item2 + 1);
 
-                        BanknotesOut.Remove(BanknotesOut.Last());
+                        Banknotes.Remove(Banknotes.Last());
 
                     } while (!GotRequiredCombination(summ, ref counter));
 
-                    for (int i = BanknotesOut.Count - counter; i < BanknotesOut.Count; i++)
+                    for (int i = Banknotes.Count - counter; i < Banknotes.Count; i++)
                     {
-                        var weights = CurrentPack.Banknotes.Where(el => el.Item1.Weight == BanknotesOut[i]);
+                        var weights = CurrentPack.Banknotes.Where(el => el.Item1.Weight == Banknotes[i]);
 
                         index = CurrentPack.Banknotes.IndexOf(weights.ToList().First());
 
                         CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
                                                                                 CurrentPack.Banknotes[index].Item2 - 1);
+
+                        if (CurrentPack.Banknotes[index].Item2 == 0)
+                        {
+                            CurrentPack.Banknotes.Remove(CurrentPack.Banknotes[index]);
+                            NBanknotesKinds--;
+                        }
+
                     }
                     
                     FullSumm -= RequestedSumm;
 
-                    BanknotesOut.Sort();
+                    Banknotes.Sort();
                     
                     WithdrawnMoney.Banknotes = CalculateBanknotes();
                 }
@@ -234,7 +241,7 @@ namespace ATM
                 
                 prev = previousSummMain[previousSummMain[prev]];
 
-                BanknotesOut.Add(banknote);
+                Banknotes.Add(banknote);
 
                 partialSumm += banknote;
 
@@ -251,7 +258,7 @@ namespace ATM
 
         public static List<Tuple<Banknote, int>> CalculateBanknotes()
         {
-            var banknotes = BanknotesOut.OrderByDescending(el => el).ToList();
+            var banknotes = Banknotes.OrderByDescending(el => el).ToList();
             var tuples = new List<Tuple<Banknote, int>>();
 
             var elem = banknotes[0];
