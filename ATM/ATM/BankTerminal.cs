@@ -2,68 +2,78 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace ATM
 {
     public class BankTerminal
     {
         public static Client CurrentClient { get; private set; }
-        public static BanknotesPack CurrentPack { get; private set; }
+        public static Bank CurrentBank { get; private set; }
+        public static BanknotesPack AllBanknotesPack { get; private set; }
 
         public static int FullSumm { get; private set; }
         public static int RequestedSumm { get; set; }
         public static int NBanknotesKinds { get; private set; }
 
-        public static BanknotesPack WithdrawnMoney { get; private set; }
+        public static BanknotesPack ClientBanknotesPack { get; private set; }
         public static List<int> Banknotes { get; set; }
-        
 
-        public static void ServiceNewClient(Client client)
+        public static void ConnectToBank(Bank bank)
         {
-            Banknotes = new List<int>();
-
-            WithdrawnMoney = new BanknotesPack();
-
-            CurrentClient = new Client(client);
-
-            WithdrawnMoney.Banknotes = new List<Tuple<Banknote, int>>();
-
-            foreach (var tuple in CurrentPack.Banknotes)
-            {
-                WithdrawnMoney.Banknotes.Add(new Tuple<Banknote, int>(tuple.Item1, 0));
-            }
+            CurrentBank = new Bank(bank);
         }
 
         public static void InsertBanknotes(BanknotesPack banknotesPack)
         {
-            CurrentPack = new BanknotesPack(banknotesPack);
+            AllBanknotesPack = new BanknotesPack(banknotesPack);
             FullSumm = 0;
 
-            foreach (var tuple in CurrentPack.Banknotes)
+            foreach (var tuple in AllBanknotesPack.Banknotes)
             {
-                FullSumm += tuple.Item1.Weight*tuple.Item2;
+                FullSumm += tuple.Item1.Weight * tuple.Item2;
             }
 
-            NBanknotesKinds = CurrentPack.Banknotes.Count;
+            NBanknotesKinds = AllBanknotesPack.Banknotes.Count;
         }
 
-        public static bool EnteredRightPinCode(string pinCode)
+        public static void UpdateClientData(Client client)
         {
-            return true;
+            CurrentClient = client;
+
+            Banknotes = new List<int>();
+
+            ClientBanknotesPack = new BanknotesPack();
+
+            foreach (var tuple in AllBanknotesPack.Banknotes)
+            {
+                ClientBanknotesPack.Banknotes.Add(new Tuple<Banknote, int>(tuple.Item1, 0));
+            }
         }
 
-        public static Tuple<List<Tuple<Banknote, int>>, int, string> WithdrawMoney(ref int summ)
+        public static Tuple<Client, bool> CheckKeyAndPinCode(string key, string pinCode)
+        {
+            foreach (var client in CurrentBank.Clients.Where(client =>
+                client.UniqueKey == key && client.PinCode == pinCode))
+            {
+                return new Tuple<Client, bool>(client, true);
+            }
+
+            return new Tuple<Client, bool>(null, false);
+        }
+
+        public static Tuple<BanknotesPack, int, string> WithdrawMoney(ref int summ)
         {
             if (summ > FullSumm)
             {
-                return new Tuple<List<Tuple<Banknote, int>>, int, string>(null, -1, Info.ErrorNoMoneyATM);
+                return new Tuple<BanknotesPack, int, string>(null, -1, Info.ErrorNoMoneyATM);
             }
 
             //probabilities of choice of each banknote
             var probabilities = new List<Tuple<Banknote, double>>();
 
             var counter = 0;
-            foreach (var tuple in CurrentPack.Banknotes)
+            foreach (var tuple in AllBanknotesPack.Banknotes)
             {
                 //n banknotes of this weight available in cassette(for ex. 200: 45)
                 var nBanknotesAvailable = tuple.Item2;
@@ -72,7 +82,7 @@ namespace ATM
                 var nBanknotesRequired = (double) summ / tuple.Item1.Weight;
 
                 //n banknotes of this weight already given out
-                var givenOut = WithdrawnMoney.Banknotes[counter].Item2;
+                var givenOut = ClientBanknotesPack.Banknotes[counter].Item2;
 
                 //the fraction (for ex. 200: 45/4 = 11.231...) 
                 var probability = nBanknotesAvailable / nBanknotesRequired / (givenOut + 1);
@@ -91,7 +101,7 @@ namespace ATM
 
             if (NBanknotesKinds == 0)
             {
-                return new Tuple<List<Tuple<Banknote, int>>, int, string>(null, -1, Info.ErrorNoMoneyATM);
+                return new Tuple<BanknotesPack, int, string>(null, -1, Info.ErrorNoMoneyATM);
             }
             
             //tuple with max probability
@@ -99,17 +109,17 @@ namespace ATM
                                                   probabilities[NBanknotesKinds - 1].Item2);
 
             //index of max in banknotes out
-            var index = CurrentPack.Banknotes.FindIndex(tuple => tuple.Item1.Weight == max.Item1.Weight);
+            var index = AllBanknotesPack.Banknotes.FindIndex(tuple => tuple.Item1.Weight == max.Item1.Weight);
             
             //decrease n of banknotes of this weight in current pack
-            CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
-                                                                    CurrentPack.Banknotes[index].Item2 - 1);
+            AllBanknotesPack.Banknotes[index] = new Tuple<Banknote, int>(AllBanknotesPack.Banknotes[index].Item1,
+                                                                    AllBanknotesPack.Banknotes[index].Item2 - 1);
 
             Banknotes.Add(max.Item1.Weight);
 
-            if (CurrentPack.Banknotes[index].Item2 == 0)
+            if (AllBanknotesPack.Banknotes[index].Item2 == 0)
             {
-                CurrentPack.Banknotes.Remove(CurrentPack.Banknotes[index]);
+                AllBanknotesPack.Banknotes.Remove(AllBanknotesPack.Banknotes[index]);
                 NBanknotesKinds--;
             }
 
@@ -118,12 +128,12 @@ namespace ATM
             if (summ == 0)
             {
                 FullSumm -= RequestedSumm;
-                WithdrawnMoney.Banknotes = CalculateBanknotes();
-                return new Tuple<List<Tuple<Banknote, int>>, int, string>(WithdrawnMoney.Banknotes,
+                ClientBanknotesPack = CreateBanknotesPack();
+                return new Tuple<BanknotesPack, int, string>(ClientBanknotesPack,
                     CurrentClient.CurrentSumm - RequestedSumm, Info.Successed);
             }
 
-            if (summ < CurrentPack.Banknotes.Min(tuple => tuple.Item1.Weight) && CurrentPack.Banknotes.Count != 0)
+            if (summ < AllBanknotesPack.Banknotes.Min(tuple => tuple.Item1.Weight) && AllBanknotesPack.Banknotes.Count != 0)
             {
                 counter = 0;
                 try
@@ -132,29 +142,29 @@ namespace ATM
                     {
                         summ += Banknotes.Last();
 
-                        var weights = CurrentPack.Banknotes.Where(el => el.Item1.Weight == Banknotes.Last());
+                        var weights = AllBanknotesPack.Banknotes.Where(el => el.Item1.Weight == Banknotes.Last());
 
-                        index = CurrentPack.Banknotes.IndexOf(weights.ToList().First());
+                        index = AllBanknotesPack.Banknotes.IndexOf(weights.ToList().First());
 
-                        CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
-                                                                                CurrentPack.Banknotes[index].Item2 + 1);
+                        AllBanknotesPack.Banknotes[index] = new Tuple<Banknote, int>(AllBanknotesPack.Banknotes[index].Item1,
+                                                                                AllBanknotesPack.Banknotes[index].Item2 + 1);
 
                         Banknotes.Remove(Banknotes.Last());
 
-                    } while (!GotRequiredCombination(summ, ref counter));
+                    } while (!GetBanknotesCombination(summ, ref counter));
 
                     for (int i = Banknotes.Count - counter; i < Banknotes.Count; i++)
                     {
-                        var weights = CurrentPack.Banknotes.Where(el => el.Item1.Weight == Banknotes[i]);
+                        var weights = AllBanknotesPack.Banknotes.Where(el => el.Item1.Weight == Banknotes[i]);
 
-                        index = CurrentPack.Banknotes.IndexOf(weights.ToList().First());
+                        index = AllBanknotesPack.Banknotes.IndexOf(weights.ToList().First());
 
-                        CurrentPack.Banknotes[index] = new Tuple<Banknote, int>(CurrentPack.Banknotes[index].Item1,
-                                                                                CurrentPack.Banknotes[index].Item2 - 1);
+                        AllBanknotesPack.Banknotes[index] = new Tuple<Banknote, int>(AllBanknotesPack.Banknotes[index].Item1,
+                                                                                AllBanknotesPack.Banknotes[index].Item2 - 1);
 
-                        if (CurrentPack.Banknotes[index].Item2 == 0)
+                        if (AllBanknotesPack.Banknotes[index].Item2 == 0)
                         {
-                            CurrentPack.Banknotes.Remove(CurrentPack.Banknotes[index]);
+                            AllBanknotesPack.Banknotes.Remove(AllBanknotesPack.Banknotes[index]);
                             NBanknotesKinds--;
                         }
 
@@ -164,26 +174,47 @@ namespace ATM
 
                     Banknotes.Sort();
                     
-                    WithdrawnMoney.Banknotes = CalculateBanknotes();
+                    ClientBanknotesPack = CreateBanknotesPack();
                 }
 
                 catch (InvalidOperationException)
                 {
-                    return new Tuple<List<Tuple<Banknote, int>>, int, string>(null,
+                    return new Tuple<BanknotesPack, int, string>(null,
                         CurrentClient.CurrentSumm, Info.ErrorNoCombination);
                 }
 
-                return new Tuple<List<Tuple<Banknote, int>>, int, string>(WithdrawnMoney.Banknotes,
+                return new Tuple<BanknotesPack, int, string>(ClientBanknotesPack,
                     CurrentClient.CurrentSumm - RequestedSumm, Info.Successed);
             }
 
             return WithdrawMoney(ref summ);
         }
 
-        public static bool GotRequiredCombination(int residue, ref int counter)
+        public static string ReturnBanknotes()
+        {
+            var banknotes = new StringBuilder("\n");
+
+            try
+            {
+                ClientBanknotesPack.Banknotes.OrderByDescending(tuple =>
+                   tuple.Item1.Weight).Where(elem1 => elem1.Item2 != 0).ToList().
+                        ForEach(elem2 => banknotes.Append(String.Format("{0} * {1}\n", elem2.Item1.Weight.ToString(),
+                            elem2.Item2.ToString())));
+
+            }
+
+            catch (ArgumentNullException exception)
+            {
+                Console.WriteLine(exception.Message);
+            }
+
+            return banknotes.ToString();
+        }
+
+        public static bool GetBanknotesCombination(int residue, ref int counter)
         {
             var allBanknotes = new List<int>();
-            allBanknotes.AddRange(CurrentPack.Banknotes.Where((tuple => tuple.Item1.Weight <= residue)).
+            allBanknotes.AddRange(AllBanknotesPack.Banknotes.Where((tuple => tuple.Item1.Weight <= residue)).
                 Select(b => b.Item1.Weight));
             
             var nBanknotes = allBanknotes.Count;
@@ -256,7 +287,7 @@ namespace ATM
             return true;
         }
 
-        public static List<Tuple<Banknote, int>> CalculateBanknotes()
+        public static BanknotesPack CreateBanknotesPack()
         {
             var banknotes = Banknotes.OrderByDescending(el => el).ToList();
             var tuples = new List<Tuple<Banknote, int>>();
@@ -283,27 +314,36 @@ namespace ATM
                 }
             }
 
-            return tuples;
+            return new BanknotesPack(tuples);
         }
 
-        public static void ShowBalance()
+        public static int ShowBalance()
         {
+            return CurrentClient.CurrentSumm;
         }
 
-        public static bool MoneyTransfered(int summ, Operation operation)
+        public static bool TransferMoney(int summ, Operation operation)
         {
             return true;
         }
 
-        public static void Finish()
+        public static void FinishService()  
         {
             try
             {
                 using (TextWriter writer = new StreamWriter(Info.PackPath))
                 {
-                    foreach (var tuple in CurrentPack.Banknotes)
+                    foreach (var tuple in AllBanknotesPack.Banknotes)
                     {
                         writer.WriteLine("{0} {1}", tuple.Item1.Weight, tuple.Item2);
+                    }
+                }
+
+                using (TextWriter writer = new StreamWriter(Info.ClientsPath))
+                {
+                    foreach (var client in CurrentBank.Clients)
+                    {
+                        writer.WriteLine("{0} {1} {2}", client.UniqueKey, client.PinCode, client.CurrentSumm);
                     }
                 }
             }
@@ -313,6 +353,6 @@ namespace ATM
                 Console.WriteLine(exception.Message);
             }
         }
-        
+
     }
 }

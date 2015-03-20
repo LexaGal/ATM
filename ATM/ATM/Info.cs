@@ -24,7 +24,6 @@ namespace ATM
 
         public static string ErrorNoCombination
         {
-
             get { return "Sorry, you cannot get such summ (ATM cannot complete your summ)"; }
         }
 

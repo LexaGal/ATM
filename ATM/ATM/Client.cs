@@ -8,6 +8,7 @@ namespace ATM
     public class Client
     {
         
+        public string UniqueKey { get; private set; }
         public string PinCode { get; private set; }
         public int CurrentSumm { get; private set; }
 
@@ -15,34 +16,37 @@ namespace ATM
         {
             using (TextReader reader = new StreamReader(Info.ClientsPath))
             {
-                string s;
-                do
+                var s = reader.ReadLine();
+
+                if (String.IsNullOrEmpty(s))
                 {
-                    s = reader.ReadLine();
+                    throw new FileLoadException();
+                }
 
-                    if (String.IsNullOrEmpty(s))
-                    {
-                        continue;
-                    }
-
-                    var pair = s.Split(' ');
-                    PinCode = pair[0];
-                    CurrentSumm = int.Parse(pair[1]);
-                } while (s != null);
-               
+                var tuple = s.Split(' ');
+                UniqueKey = tuple[0];
+                PinCode = tuple[1];
+                CurrentSumm = int.Parse(tuple[2]);
             }
         }
 
-        public Client(string pinCode, int currentSumm)
+        public Client(string uniqueKey, string pinCode, int currentSumm)
         {
+            UniqueKey = uniqueKey;
             PinCode = pinCode;
             CurrentSumm = currentSumm;
         }
 
         public Client(Client client)
         {
+            UniqueKey = client.UniqueKey;
             PinCode = client.PinCode;
             CurrentSumm = client.CurrentSumm;
+        }
+
+        public bool EnterKeyAndPinCode(string key, string pinCode)
+        {
+            return BankTerminal.CheckKeyAndPinCode(key, pinCode).Item2;
         }
 
         public string GetMoney(int summ)
@@ -63,44 +67,13 @@ namespace ATM
 
             CurrentSumm = result.Item2;
                 
-            return ReturnBanknotes();
+            return BankTerminal.ReturnBanknotes();
         }
 
-        public string ReturnBanknotes()
+        public int WatchBalance()
         {
-            var banknotes = new StringBuilder("\n");
-
-            try
-            {
-                BankTerminal.WithdrawnMoney.Banknotes.OrderByDescending(tuple =>
-                   tuple.Item1.Weight).Where(elem1 => elem1.Item2 != 0).ToList().
-                        ForEach(elem2 => banknotes.Append(String.Format("{0} * {1}\n", elem2.Item1.Weight.ToString(),
-                            elem2.Item2.ToString())));
-
-            }
-
-            catch(ArgumentNullException exception)
-            {
-                Console.WriteLine(exception.Message);
-            }
-
-            return banknotes.ToString();
+            return BankTerminal.ShowBalance();
         }
-
-        public void SaveState()
-        {
-            try
-            {
-                using (TextWriter writer = new StreamWriter(Info.ClientsPath))
-                {
-                    writer.WriteLine("{0} {1}", PinCode, CurrentSumm);
-                }
-            }
-
-            catch (FileNotFoundException exception)
-            {
-                Console.WriteLine(exception.Message);
-            }
-        }
+        
     }
 }

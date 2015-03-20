@@ -7,6 +7,7 @@ namespace ATM
     public class BanknotesPack
     {
         public List<Tuple<Banknote, int>> Banknotes { get; set; }
+        
         public int Summ
         {
             get
@@ -14,7 +15,6 @@ namespace ATM
                 return Banknotes.Sum(banknote => banknote.Item1.Weight*banknote.Item2);
             }
         }
-
 
         public BanknotesPack()
         {
@@ -29,6 +29,11 @@ namespace ATM
         public BanknotesPack(BanknotesPack banknotesPack)
         {
             Banknotes = new List<Tuple<Banknote, int>>(banknotesPack.Banknotes);
+        }
+
+        public void Clear()
+        {
+            Banknotes.Clear();
         }
     }
 }
