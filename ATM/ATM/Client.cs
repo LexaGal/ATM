@@ -2,19 +2,20 @@
 using System.IO;
 using System.Linq;
 using System.Text;
+using ATM.Interfaces;
 
 namespace ATM
 {
-    public class Client
+    public class Client : IClient
     {
-        
+        public BankTerminal CurrentBankTerminal { get; set; }
         public string UniqueKey { get; private set; }
         public string PinCode { get; private set; }
         public int CurrentSumm { get; private set; }
 
         public Client()
         {
-            using (TextReader reader = new StreamReader(Info.ClientsPath))
+            using (TextReader reader = new StreamReader(Info.ClientsFilePath))
             {
                 var s = reader.ReadLine();
 
@@ -44,21 +45,21 @@ namespace ATM
             CurrentSumm = client.CurrentSumm;
         }
 
-        public bool EnterKeyAndPinCode(string key, string pinCode)
+        public bool ConnectToTerminal(string key, string pinCode)
         {
-            return BankTerminal.CheckKeyAndPinCode(key, pinCode).Item2;
+            return CurrentBankTerminal.ServiceNewClient(key, pinCode).Item2;
         }
 
         public string GetMoney(int summ)
         {
             if (summ > CurrentSumm)
             {
-                return Info.ErrorNoMoneyClient;
+                return Info.OperationErrorNotEnoughMoneyOfClient;
             }
 
-            BankTerminal.RequestedSumm = summ;
+            CurrentBankTerminal.RequestedSumm = summ;
 
-            var result = BankTerminal.WithdrawMoney(ref summ);
+            var result = CurrentBankTerminal.WithdrawMoney(ref summ);
 
             if (result.Item1 == null)
             {
@@ -67,12 +68,12 @@ namespace ATM
 
             CurrentSumm = result.Item2;
                 
-            return BankTerminal.ReturnBanknotes();
+            return CurrentBankTerminal.ReturnBanknotes();
         }
 
         public int WatchBalance()
         {
-            return BankTerminal.ShowBalance();
+            return CurrentBankTerminal.ShowBalance();
         }
         
     }

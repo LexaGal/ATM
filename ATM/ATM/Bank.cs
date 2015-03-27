@@ -35,7 +35,7 @@ namespace ATM
             var banknotes = new List<Tuple<Banknote, int>>();
             try
             {
-                using (TextReader reader = new StreamReader(Info.PackPath))
+                using (TextReader reader = new StreamReader(Info.BanknotesPackPath))
                 {
                     string s;
                     do
@@ -75,7 +75,7 @@ namespace ATM
                 Clients.Add(new Client(result, pin.ToString(), summ));
             }
 
-            using (TextWriter writer = new StreamWriter(Info.ClientsPath, true))
+            using (TextWriter writer = new StreamWriter(Info.ClientsFilePath, true))
             {
                 foreach (var client in Clients)
                 {
@@ -89,7 +89,7 @@ namespace ATM
         public List<Client> GetCreatedClients()
         {
             Clients = new List<Client>();
-            using (TextReader reader = new StreamReader(Info.ClientsPath))
+            using (TextReader reader = new StreamReader(Info.ClientsFilePath))
             {
                 string s;
                 do
