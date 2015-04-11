@@ -4,11 +4,14 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using ATM.Interfaces;
+using log4net;
 
 namespace ATM.Classes
 {
-    public class BankTerminal : IBankTerminal
+    public class BankTerminal : IWithdrawer
     {
+        public readonly ILog Log = LogManager.GetLogger(typeof(BankTerminal));   
+
         public Client CurrentClient { get; private set; }
         public Bank CurrentBank { get; private set; }
         public BanknotesPack AllBanknotesPack { get; private set; }
@@ -69,6 +72,10 @@ namespace ATM.Classes
         {
             if (summ > FullSumm)
             {
+                Log.Error(string.Format("Client [Key: {0} Pin: {1}] ({2})",
+                    CurrentClient.UniqueKey, CurrentClient.PinCode, Info.OperationErrorNotEnoughMoneyATM));
+
+
                 return new Tuple<BanknotesPack, int, string>(null, -1, Info.OperationErrorNotEnoughMoneyATM);
             }
 
@@ -104,6 +111,9 @@ namespace ATM.Classes
 
             if (NBanknotesKinds == 0)
             {
+                Log.Error(string.Format("Client [Key: {0} Pin: {1}] ({2})",
+                    CurrentClient.UniqueKey, CurrentClient.PinCode, Info.OperationErrorNotEnoughMoneyATM));
+                
                 return new Tuple<BanknotesPack, int, string>(null, -1, Info.OperationErrorNotEnoughMoneyATM);
             }
             
@@ -132,6 +142,10 @@ namespace ATM.Classes
             {
                 FullSumm -= RequestedSumm;
                 ClientBanknotesPack = CreateBanknotesPack();
+
+                Log.Info(string.Format("Client [Key: {0} Pin: {1}] got {2}",
+                    CurrentClient.UniqueKey, CurrentClient.PinCode, RequestedSumm));
+
                 return new Tuple<BanknotesPack, int, string>(ClientBanknotesPack,
                     CurrentClient.CurrentSumm - RequestedSumm, Info.OperationSuccessed);
             }
@@ -182,9 +196,15 @@ namespace ATM.Classes
 
                 catch (InvalidOperationException)
                 {
+                    Log.Error(string.Format("Client [Key: {0} Pin: {1}] ({2})",
+                    CurrentClient.UniqueKey, CurrentClient.PinCode, Info.OperationErrorNoBanknotesCombination));
+
                     return new Tuple<BanknotesPack, int, string>(null,
-                        CurrentClient.CurrentSumm, Info.OperationErrorNotEnoughMoneyATM);
+                        CurrentClient.CurrentSumm, Info.OperationErrorNoBanknotesCombination);
                 }
+
+                Log.Info(string.Format("Client [Key: {0} Pin: {1}] got {2}",
+                    CurrentClient.UniqueKey, CurrentClient.PinCode, RequestedSumm));
 
                 return new Tuple<BanknotesPack, int, string>(ClientBanknotesPack,
                     CurrentClient.CurrentSumm - RequestedSumm, Info.OperationSuccessed);
@@ -212,6 +232,12 @@ namespace ATM.Classes
                 Select(b => b.Item1.Weight));
             
             var nBanknotes = allBanknotes.Count;
+
+            if (nBanknotes == 0)
+            {
+                throw new InvalidOperationException();
+            }
+
             var maxSumm = residue + 1;
             
             var combinationExists = new List<int>(maxSumm);

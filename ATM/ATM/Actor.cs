@@ -1,12 +1,29 @@
 ﻿using System;
+using ATM.Classes;
+using log4net;
 
 namespace ATM
 {
+    
     public class Actor
     {
-        private static Bank _bank = new Bank(int.MaxValue);
-        private static BankTerminal _bankTerminal = new BankTerminal();
+        private static Bank _bank;
+        private static BankTerminal _bankTerminal;
+
+        static Actor()
+        {
+            try
+            {
+                _bank = new Bank(int.MaxValue);
+                _bankTerminal = new BankTerminal();
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine(exception.Message);
+            }
             
+        }
+    
         public static void GetAccess()
         {
             while (true)
@@ -64,7 +81,7 @@ namespace ATM
 
             _bankTerminal.FinishService();
 
-            Console.WriteLine("Would you like to perform more operations? [yes / no]");
+            Console.Write("Would you like to perform more operations?\nAnswer[yes / no]: ");
             var response = Console.ReadLine();
 
             if (response != "yes")
@@ -75,14 +92,22 @@ namespace ATM
             PerformOperation();
         }
 
+
+        [STAThread]
         private static void Main()
         {
+            log4net.Config.XmlConfigurator.Configure();
+
+            _bankTerminal = new BankTerminal();
+            
             _bankTerminal.ConnectToBank(_bank);
             _bankTerminal.InsertBanknotes(_bank.FullBanknotesPack);
 
+            
             GetAccess();
             PerformOperation();
             
         }
+
     }
 }

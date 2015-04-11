@@ -4,7 +4,7 @@ using ATM.Interfaces;
 
 namespace ATM.Classes
 {
-    public class Client : IClient
+    public class Client: IGetter
     {
         public BankTerminal CurrentBankTerminal { get; set; }
         public string UniqueKey { get; private set; }
@@ -52,6 +52,9 @@ namespace ATM.Classes
         {
             if (summ > CurrentSumm)
             {
+                CurrentBankTerminal.Log.Error(string.Format("Client [Key: {0} Pin: {1}] ({2})",
+                   UniqueKey, PinCode, Info.OperationErrorNotEnoughMoneyClient));
+                
                 return Info.OperationErrorNotEnoughMoneyClient;
             }
 
