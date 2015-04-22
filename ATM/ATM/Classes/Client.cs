@@ -10,6 +10,7 @@ namespace ATM.Classes
         public string UniqueKey { get; private set; }
         public string PinCode { get; private set; }
         public int CurrentSumm { get; private set; }
+        public BanknotesReturner BanknotesReturner { get; set; }  
 
         public Client()
         {
@@ -48,14 +49,16 @@ namespace ATM.Classes
             return CurrentBankTerminal.ServiceNewClient(key, pinCode).Item2;
         }
 
-        public string GetMoney(int summ)
+        public BanknotesPack GetMoney(int summ)
         {
             if (summ > CurrentSumm)
             {
-                CurrentBankTerminal.Log.Error(string.Format("Client [Key: {0} Pin: {1}] ({2})",
-                   UniqueKey, PinCode, Info.OperationErrorNotEnoughMoneyClient));
+                CurrentBankTerminal.Log.Error(string.Format("Client [Key: {0} Pin: {1}] sum: {2} [Error: {3}]",
+                   UniqueKey, PinCode, summ, Info.OperationErrorNotEnoughMoneyClient));
+
+                BanknotesReturner = new BanknotesReturner(null, Info.OperationErrorNotEnoughMoneyClient);
                 
-                return Info.OperationErrorNotEnoughMoneyClient;
+                return null;
             }
 
             CurrentBankTerminal.RequestedSumm = summ;
@@ -64,12 +67,16 @@ namespace ATM.Classes
 
             if (result.Item1 == null)
             {
-                return result.Item3;
+                BanknotesReturner = new BanknotesReturner(null, result.Item3);
+                
+                return null;
             }
 
             CurrentSumm = result.Item2;
 
-            return CurrentBankTerminal.ReturnBanknotes();
+            BanknotesReturner = new BanknotesReturner(result.Item1);
+
+            return result.Item1;
         }
 
         public int WatchBalance()

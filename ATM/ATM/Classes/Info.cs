@@ -5,27 +5,27 @@ namespace ATM.Classes
     {
         public static string BanknotesPackPath
         {
-            get { return @"C:\Users\Alex\Documents\GitHub\ATM\ATM\ATM\ATM\bin\Debug\BanknotesFile.txt"; }
+            get { return @"C:\Users\Alex\Documents\GitHub\ATM\ATM\ATM\ATM\BanknotesFile.txt"; }
         }
 
         public static string ClientsFilePath
         {
-            get { return @"C:\Users\Alex\Documents\GitHub\ATM\ATM\ATM\ATM\bin\Debug\ClientsFile.txt"; }
+            get { return @"C:\Users\Alex\Documents\GitHub\ATM\ATM\ATM\ATM\ClientsFile.txt"; }
         }
 
         public static string OperationErrorNotEnoughMoneyClient
         {
-            get { return "Sorry, you cannot get such summ (you do not have enough money)"; }
+            get { return "You cannot get such sum (you do not have enough money)"; }
         }
 
         public static string OperationErrorNotEnoughMoneyATM
         {
-            get { return "Sorry, you cannot get such summ (not enough money in ATM)"; }
+            get { return "You cannot get such sum (not enough money in ATM)"; }
         }
 
         public static string OperationErrorNoBanknotesCombination
         {
-            get { return "Sorry, you cannot get such summ (ATM cannot complete your summ)"; }
+            get { return "You cannot get such sum (ATM cannot complete your sum)"; }
         }
 
         public static string OperationSuccessed

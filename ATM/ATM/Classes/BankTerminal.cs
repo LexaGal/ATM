@@ -72,10 +72,9 @@ namespace ATM.Classes
         {
             if (summ > FullSumm)
             {
-                Log.Error(string.Format("Client [Key: {0} Pin: {1}] ({2})",
-                    CurrentClient.UniqueKey, CurrentClient.PinCode, Info.OperationErrorNotEnoughMoneyATM));
-
-
+                Log.Error(string.Format("Client [Key: {0} Pin: {1}] sum: {2} [Error: {3}]",
+                    CurrentClient.UniqueKey, CurrentClient.PinCode, RequestedSumm, Info.OperationErrorNotEnoughMoneyATM));
+                
                 return new Tuple<BanknotesPack, int, string>(null, -1, Info.OperationErrorNotEnoughMoneyATM);
             }
 
@@ -111,8 +110,8 @@ namespace ATM.Classes
 
             if (NBanknotesKinds == 0)
             {
-                Log.Error(string.Format("Client [Key: {0} Pin: {1}] ({2})",
-                    CurrentClient.UniqueKey, CurrentClient.PinCode, Info.OperationErrorNotEnoughMoneyATM));
+                Log.Error(string.Format("Client [Key: {0} Pin: {1}] sum: {2} [Error: {3}]",
+                    CurrentClient.UniqueKey, CurrentClient.PinCode, RequestedSumm, Info.OperationErrorNotEnoughMoneyATM));
                 
                 return new Tuple<BanknotesPack, int, string>(null, -1, Info.OperationErrorNotEnoughMoneyATM);
             }
@@ -172,7 +171,8 @@ namespace ATM.Classes
 
                     for (int i = Banknotes.Count - counter; i < Banknotes.Count; i++)
                     {
-                        var weights = AllBanknotesPack.Banknotes.Where(el => el.Item1.Weight == Banknotes[i]);
+                        var ind = i;
+                        var weights = AllBanknotesPack.Banknotes.Where(el => el.Item1.Weight == Banknotes[ind]);
 
                         index = AllBanknotesPack.Banknotes.IndexOf(weights.ToList().First());
 
@@ -196,8 +196,8 @@ namespace ATM.Classes
 
                 catch (InvalidOperationException)
                 {
-                    Log.Error(string.Format("Client [Key: {0} Pin: {1}] ({2})",
-                    CurrentClient.UniqueKey, CurrentClient.PinCode, Info.OperationErrorNoBanknotesCombination));
+                    Log.Error(string.Format("Client [Key: {0} Pin: {1}] sum: {2} [Error: {3}]",
+                    CurrentClient.UniqueKey, CurrentClient.PinCode, RequestedSumm, Info.OperationErrorNoBanknotesCombination));
 
                     return new Tuple<BanknotesPack, int, string>(null,
                         CurrentClient.CurrentSumm, Info.OperationErrorNoBanknotesCombination);
@@ -213,18 +213,7 @@ namespace ATM.Classes
             return WithdrawMoney(ref summ);
         }
 
-        public string ReturnBanknotes()
-        {
-            var banknotes = new StringBuilder("\n");
-            
-            ClientBanknotesPack.Banknotes.OrderByDescending(tuple =>
-                tuple.Item1.Weight).Where(elem1 => elem1.Item2 != 0).ToList().
-                    ForEach(elem2 => banknotes.Append(String.Format("{0} * {1}\n", elem2.Item1.Weight.ToString(),
-                        elem2.Item2.ToString())));
-                        
-            return banknotes.ToString();
-        }
-
+        
         public bool GetBanknotesCombination(int residue, ref int counter)
         {
             var allBanknotes = new List<int>();
@@ -347,7 +336,7 @@ namespace ATM.Classes
             return true;
         }
 
-        public void FinishService()  
+        public void FinishOperation()  
         {
             try
             {
